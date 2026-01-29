@@ -1,0 +1,120 @@
+
+:root {
+    --bg: #ffffff;
+    --text: #1e293b;
+    --card: #ffffff;
+    --accent: #39ff14;
+    --danger: #ff7675;
+    --shadow: 0 5px 15px -3px rgba(0, 0, 0, 0.08);
+    --radius: 24px;
+}
+
+body.dark-theme {
+    --bg: #0f172a;
+    --text: #f8fafc;
+    --card: #1e293b;
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+* { box-sizing: border-box; font-family: 'Inter', sans-serif; transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+body { margin: 0; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
+
+.page { display: none; }
+.page.active { display: block; }
+
+/* HEADER */
+.nav-header { 
+    padding: 20px;
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    position: relative;
+}
+.app-logo { display: flex; align-items: center; gap: 10px; }
+.app-logo img { height: 30px; }
+.app-name { font-weight: 700; font-size: 18px; }
+.date-chip { 
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--card); 
+    padding: 8px 16px; 
+    border-radius: 50px; 
+    font-size: 13px; 
+    font-weight: 600; 
+    box-shadow: var(--shadow); 
+}
+.user-profile { cursor: pointer; }
+
+/* BALANCE CARD */
+.balance-card {
+    background: var(--card);
+    color: var(--text);
+    margin: 10px 20px 30px;
+    padding: 30px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.card-label { font-size: 11px; letter-spacing: 1px; opacity: 0.7; font-weight: 700; }
+.main-balance { font-size: 36px; font-weight: 800; margin: 10px 0 25px; }
+
+/* PROGRESS BAR */
+.progress-container { background: rgba(128, 128, 128, 0.2); height: 8px; border-radius: 10px; overflow: hidden; }
+#progressBar { height: 100%; background: var(--accent); width: 0%; border-radius: 10px; box-shadow: 0 0 15px var(--accent); }
+
+/* EXPENSE BOXES */
+.expense-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 0 20px 30px; }
+.expense-box { background: var(--card); padding: 20px; border-radius: 20px; box-shadow: var(--shadow); }
+.expense-box.full-width { grid-column: span 2; }
+.expense-label { font-size: 13px; font-weight: 600; opacity: 0.7; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+.expense-label .material-symbols-outlined { font-size: 20px; }
+.expense-amount { font-size: 22px; font-weight: 800; margin: 0; }
+#budgetAmount { color: #3498db; }
+#spentAmount { color: #e74c3c; }
+#savingAmount { color: #2ecc71; }
+
+/* LIST ITEMS & SEARCH */
+.search-bar { margin: 0 20px 20px; }
+#searchInput { width: 100%; padding: 15px; border: none; border-radius: 15px; background: var(--card); color: var(--text); font-size: 14px; box-shadow: var(--shadow); }
+#searchInput::placeholder { color: var(--text); opacity: 0.5; }
+.expense-list { padding: 0 20px; height: 350px; overflow-y: auto; }
+.expense-tile { background: var(--card); padding: 15px; border-radius: 20px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow); }
+.tile-left { display: flex; align-items: center; gap: 15px; }
+.tile-icon { font-size: 22px; background: var(--bg); width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border-radius: 15px; }
+.tile-name { font-weight: 700; }
+.tile-amt { font-weight: 800; color: var(--danger); }
+
+
+/* BUTTONS & MODALS */
+.add-fab { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; border-radius: 50%; background: var(--accent); color: #0f172a; border: none; font-size: 28px; box-shadow: 0 10px 25px rgba(57, 255, 20, 0.4); }
+.add-fab:active { transform: scale(0.9); }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+.custom-modal { background: var(--card); width: 90%; max-width: 380px; padding: 25px; border-radius: var(--radius); transform: scale(0.95); transition: transform 0.3s ease; }
+.modal-overlay.active .custom-modal { transform: scale(1); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-header h3 { margin: 0; font-size: 18px; font-weight: 700; }
+.close-x { cursor: pointer; font-size: 24px; opacity: 0.5; }
+.close-x:hover { opacity: 1; }
+.category-grid { display: flex; justify-content: space-around; gap: 15px; padding: 10px 0 25px; }
+.cat-item { flex: 0 0 55px; height: 55px; background: var(--bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; border: 2px solid transparent; }
+.cat-item.selected { border-color: var(--accent); transform: scale(1.1); }
+.custom-modal input { width: 100%; padding: 18px; border: 1px solid transparent; background: var(--bg); border-radius: 15px; margin-bottom: 15px; color: var(--text); font-size: 15px; font-weight: 600; }
+.custom-modal input::placeholder { color: var(--text); opacity: 0.5; }
+.custom-modal input:focus { outline: none; border-color: var(--accent); }
+.modal-save-btn { width: 100%; padding: 18px; border: none; border-radius: 15px; background: var(--accent); color: #0f172a; font-size: 16px; font-weight: 700; cursor: pointer; }
+
+/* SETTINGS PAGE */
+.settings-card { background: var(--card); border-radius: 20px; margin: 0 20px 15px; padding: 10px 20px; box-shadow: var(--shadow); }
+.settings-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
+.item-info { display: flex; flex-direction: column; }
+.item-title { font-weight: 700; font-size: 16px; }
+.item-sub { font-size: 12px; opacity: 0.6; }
+.theme-toggle { font-size: 24px; cursor: pointer; background: none; border: none; color: var(--text); }
+.danger-zone { cursor: pointer; }
+.danger-zone .item-title { color: var(--danger); }
+.nav-header .back-btn { font-size: 28px; font-weight: 700; cursor: pointer; }
+.nav-header .title { font-size: 20px; font-weight: 700; }
