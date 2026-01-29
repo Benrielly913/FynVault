@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FynVault</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
+</head>
+<body>
+
+    <div id="mainPage" class="page active">
+    
+        <div class="nav-header">
+            <div class="app-logo">
+                <img src="coinlogo.png" alt="FynVault Logo">
+                <span class="app-name">FynVault</span>
+            </div>
+            <div class="date-chip" onclick="document.getElementById('calendarInput').showPicker()">
+                <span id="dateText">-- ---</span>
+                <input type="date" id="calendarInput" style="display:none" onchange="handleDateChange(this.value)">
+            </div>
+            <div class="user-profile" onclick="showPage('settingsPage')">
+                <span class="material-symbols-outlined">settings</span>
+            </div>
+        </div>
+        
+        <div class="content-area">
+            <div class="balance-card">
+                <div class="card-label">TOTAL SPENT TODAY</div>
+                <div class="main-balance" id="statSpent">₹0.00</div>
+                <div class="progress-wrapper">
+                    <div class="progress-container">
+                        <div id="progressBar"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="expense-boxes">
+                <div class="expense-box" onclick="openModal('budgetModal')">
+                    <p class="expense-label"><span class="material-symbols-outlined">account_balance_wallet</span> TOTAL BUDGET</p>
+                    <p class="expense-amount" id="totalBudgetAmount">₹0.00</p>
+                </div>
+                <div class="expense-box">
+                    <p class="expense-label"><span class="material-symbols-outlined">shopping_cart</span> SPENT TODAY</p>
+                    <p class="expense-amount" id="spentAmount">₹0.00</p>
+                </div>
+                <div class="expense-box full-width" onclick="openModal('savingModal')">
+                    <p class="expense-label"><span class="material-symbols-outlined">savings</span> TOTAL SAVINGS</p>
+                    <p class="expense-amount" id="totalSavingAmount">₹0.00</p>
+                </div>
+            </div>
+
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search expenses...">
+            </div>
+
+            <div id="history" class="expense-list"></div>
+        </div>
+
+        <button class="add-fab" onclick="openModal('expenseModal')">+</button>
+    </div>
+
+    <div id="expenseModal" class="modal-overlay">
+        <div class="custom-modal">
+            <div class="modal-header">
+                <h3>Add Expense</h3>
+                <span class="close-x" onclick="closeModal('expenseModal')">&times;</span>
+            </div>
+            <div class="category-grid">
+                <div class="cat-item selected" onclick="selectCat('🍔', this)">🍔</div>
+                <div class="cat-item" onclick="selectCat('🚗', this)">🚗</div>
+                <div class="cat-item" onclick="selectCat('🛍️', this)">🛍️</div>
+                <div class="cat-item" onclick="selectCat('🍿', this)">🍿</div>
+                <div class="cat-item" onclick="selectCat('💡', this)">💡</div>
+            </div>
+            <input type="text" id="modalWhere" placeholder="What for?">
+            <input type="number" id="modalAmt" placeholder="Amount">
+            <button class="modal-save-btn" onclick="saveNewExpense()">Add to Ledger</button>
+        </div>
+    </div>
+
+    <div id="budgetModal" class="modal-overlay">
+        <div class="custom-modal">
+            <div class="modal-header">
+                <h3>Set Daily Goal</h3>
+                <span class="close-x" onclick="closeModal('budgetModal')">&times;</span>
+            </div>
+            <input type="number" id="modalBudgetField" placeholder="Enter amount">
+            <button class="modal-save-btn" onclick="saveNewBudget()">Confirm Budget</button>
+        </div>
+    </div>
+
+    <div id="savingModal" class="modal-overlay">
+        <div class="custom-modal">
+            <div class="modal-header">
+                <h3>Savings Options</h3>
+                <span class="close-x" onclick="closeModal('savingModal')">&times;</span>
+            </div>
+            <button class="modal-save-btn" onclick="openModal('addSavingModal'); closeModal('savingModal');">Add to Today's Savings</button>
+            <button class="modal-save-btn" style="margin-top: 15px; background-color: #3498db;" onclick="showSavingsHistory(); openModal('savingsHistoryModal'); closeModal('savingModal');">View Savings History</button>
+        </div>
+    </div>
+
+    <div id="addSavingModal" class="modal-overlay">
+        <div class="custom-modal">
+            <div class="modal-header">
+                <h3>Add to Savings</h3>
+                <span class="close-x" onclick="closeModal('addSavingModal')">&times;</span>
+            </div>
+            <input type="number" id="modalSavingField" placeholder="Enter amount">
+            <button class="modal-save-btn" onclick="saveNewSaving()">Confirm Saving</button>
+        </div>
+    </div>
+
+    <div id="savingsHistoryModal" class="modal-overlay">
+        <div class="custom-modal">
+            <div class="modal-header">
+                <h3>Savings History</h3>
+                <span class="close-x" onclick="closeModal('savingsHistoryModal')">&times;</span>
+            </div>
+            <div id="savingsHistoryList" class="expense-list" style="height: 300px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <div id="settingsPage" class="page">
+        <div class="nav-header">
+            <span class="back-btn" onclick="showPage('mainPage')">←</span>
+            <span class="title">Settings</span>
+            <span></span>
+        </div>
+        <div class="content-area">
+            <div class="settings-card">
+                <div class="settings-item">
+                    <div class="item-info">
+                        <span class="item-title">Dark Mode</span>
+                        <span class="item-sub">Toggle between light and dark mode</span>
+                    </div>
+                    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+                </div>
+            </div>
+            <div class="settings-card">
+                <div class="settings-item">
+                    <div class="item-info">
+                        <span class="item-title">Currency</span>
+                        <span class="item-sub">Select your preferred currency</span>
+                    </div>
+                    <select id="currencySelector" onchange="changeCurrency()">
+                        <option value="INR">INR (₹)</option>
+                        <option value="USD">USD ($)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="settings-card">
+                <div class="settings-item">
+                    <div class="item-info">
+                        <span class="item-title">Export as PDF</span>
+                        <span class="item-sub">Export all your data as a PDF file</span>
+                    </div>
+                    <button class="theme-toggle" onclick="exportAsPDF()">📄</button>
+                </div>
+                <div class="settings-item" style="margin-top: 15px;">
+                    <div class="item-info">
+                        <span class="item-title">Export as Excel</span>
+                        <span class="item-sub">Export all your data as an Excel file</span>
+                    </div>
+                    <button class="theme-toggle" onclick="exportAsExcel()">📊</button>
+                </div>
+            </div>
+            <div class="settings-card danger-zone" onclick="clearAllData()">
+                <div class="settings-item">
+                    <span class="item-title">Clear All Data</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
