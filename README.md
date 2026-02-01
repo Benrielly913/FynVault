@@ -1,2 +1,2 @@
-# FynVault
-Ready for deployment
+# CoinAppNyxx
+Beta version for SwiftCoin
