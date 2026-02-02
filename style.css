@@ -26,34 +26,43 @@ body { margin: 0; background: var(--bg); color: var(--text); overflow: hidden; h
 .modal-overlay.active { opacity: 1; pointer-events: auto; }
 .custom-modal { background: var(--card); width: 90%; max-width: 380px; padding: 25px; border-radius: var(--radius); position: relative; }
 
-/* Fixed Close Button to Right */
+/* Header & Close Button Position */
 .modal-header { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; position: relative; }
 .modal-header h3 { margin: 0; font-size: 18px; font-weight: 700; }
 .close-x { cursor: pointer; font-size: 26px; position: absolute; right: 0; top: -5px; opacity: 0.5; }
 
-/* Search Bar Fix */
+/* Uniform Input Style (Same as Search Bar) */
 .search-container { padding: 0 20px 20px; }
-#searchInput { width: 100%; padding: 15px; border-radius: 15px; border: none; background: var(--card); color: var(--text); box-shadow: var(--shadow); }
+#searchInput, .styled-input { 
+    width: 100%; 
+    padding: 16px; 
+    border-radius: 15px; 
+    border: none; 
+    background: var(--bg); /* Uses page background for contrast inside cards */
+    color: var(--text); 
+    box-shadow: var(--shadow);
+    margin-bottom: 15px;
+    font-size: 14px;
+    font-weight: 600;
+}
+.dark-theme #searchInput, .dark-theme .styled-input {
+    background: #0f172a;
+}
 
 /* Buttons */
-.modal-save-btn { width: 100%; padding: 16px; border-radius: 15px; border: none; background: var(--accent); color: #000; font-weight: 700; cursor: pointer; font-size: 15px; }
+.modal-save-btn { width: 100%; padding: 16px; border-radius: 15px; border: none; background: var(--accent); color: #000; font-weight: 800; cursor: pointer; font-size: 14px; }
 .modal-save-btn.secondary { background: #3498db; color: #fff; }
 .modal-save-btn.delete { background: var(--danger); color: #fff; }
 
-/* Settings Page */
+/* Settings Cards */
 .settings-card { background: var(--card); border-radius: 20px; margin: 0 20px 15px; padding: 20px; box-shadow: var(--shadow); }
-.settings-item { display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
-.item-title { font-weight: 700; font-size: 16px; }
+.settings-item { display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
 .clickable { cursor: pointer; }
 .danger-zone { color: var(--danger); cursor: pointer; }
 
-/* FAB & Header */
-.add-fab { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; border-radius: 50%; background: var(--accent); border: none; font-size: 30px; box-shadow: 0 10px 20px rgba(57, 255, 20, 0.3); }
-.nav-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; }
-.balance-card { background: var(--card); margin: 10px 20px 30px; padding: 30px; border-radius: var(--radius); box-shadow: var(--shadow); }
-.main-balance { font-size: 36px; font-weight: 800; margin: 10px 0; }
-.progress-container { background: rgba(128,128,128,0.2); height: 8px; border-radius: 10px; overflow: hidden; }
-#progressBar { height: 100%; background: var(--accent); width: 0%; }
-.expense-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 0 20px 30px; }
-.expense-box { background: var(--card); padding: 20px; border-radius: 20px; box-shadow: var(--shadow); }
+/* Tiles & Progress */
 .expense-tile { background: var(--card); padding: 15px; border-radius: 20px; margin: 0 20px 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow); }
+.add-fab { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; border-radius: 50%; background: var(--accent); border: none; font-size: 30px; box-shadow: 0 10px 20px rgba(57, 255, 20, 0.3); }
+.category-grid { display: flex; justify-content: space-around; margin-bottom: 20px; }
+.cat-item { font-size: 24px; padding: 10px; cursor: pointer; border-radius: 50%; border: 2px solid transparent; }
+.cat-item.selected { border-color: var(--accent); background: rgba(57, 255, 20, 0.1); }
