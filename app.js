@@ -1,26 +1,143 @@
-
 let allData = JSON.parse(localStorage.getItem('fynVault')) || {};
 let selectedDate = new Date().toISOString().split('T')[0];
 let currentSelectedCat = '🍔';
 let currency = localStorage.getItem('fynVaultCurrency') || 'INR';
-const currencySymbols = {
-    'USD': '$',
-    'INR': '₹'
-};
+let editingIndex = null;
+let exportType = 'pdf'; // Current format selected
+
+const currencySymbols = { 'USD': '$', 'INR': '₹' };
 
 window.onload = () => {
-    // Load theme from localStorage
-    const savedTheme = localStorage.getItem('fynVaultTheme');
-    if (savedTheme === 'light') {
-        document.body.classList.remove('dark-theme');
-    } else {
-        document.body.classList.add('dark-theme');
-    }
-
-    document.getElementById('searchInput').addEventListener('input', updateUI);
+    checkDailyReset();
+    const savedTheme = localStorage.getItem('fynVaultTheme') || 'dark';
+    document.body.classList.toggle('dark-theme', savedTheme === 'dark');
     document.getElementById('currencySelector').value = currency;
+    
+    initSwipe('swipe-expense', saveNewExpense);
+    initSwipe('swipe-budget', saveNewBudget);
+    initSwipe('swipe-saving', saveNewSaving);
+    
     updateUI();
 };
+
+// --- Feature: Daily Reset ---
+function checkDailyReset() {
+    const lastLogin = localStorage.getItem('fynVaultLastDate');
+    const today = new Date().toISOString().split('T')[0];
+    if (lastLogin && lastLogin !== today) {
+        if (!allData[today]) allData[today] = { budget: 0, items: [], savings: 0 };
+    }
+    localStorage.setItem('fynVaultLastDate', today);
+    localStorage.setItem('fynVault', JSON.stringify(allData));
+}
+
+// --- Feature: Swipe to Confirm ---
+function initSwipe(id, callback) {
+    const container = document.getElementById(id);
+    const handle = container.querySelector('.swipe-handle');
+    let isDragging = false, startX = 0;
+
+    const onStart = (e) => {
+        isDragging = true;
+        startX = e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
+        handle.style.transition = 'none';
+    };
+
+    const onMove = (e) => {
+        if (!isDragging) return;
+        const currentX = e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
+        let delta = currentX - startX;
+        const max = container.offsetWidth - handle.offsetWidth - 10;
+        if (delta < 0) delta = 0;
+        if (delta > max) delta = max;
+        handle.style.transform = `translateX(${delta}px)`;
+        if (delta >= max) {
+            isDragging = false;
+            handle.style.transform = `translateX(${max}px)`;
+            setTimeout(() => { resetSwipe(handle); callback(); }, 200);
+        }
+    };
+
+    const onEnd = () => { isDragging = false; resetSwipe(handle); };
+    const resetSwipe = (el) => { el.style.transition = '0.3s'; el.style.transform = 'translateX(0px)'; };
+
+    handle.addEventListener('mousedown', onStart);
+    handle.addEventListener('touchstart', onStart);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('touchmove', onMove);
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchend', onEnd);
+}
+
+// --- Feature: Export Logic (Range Based) ---
+function openExportRange(type) {
+    exportType = type;
+    document.getElementById('exportModalTitle').innerText = `Export as ${type.toUpperCase()}`;
+    openModal('exportRangeModal');
+}
+
+function executeExport(range) {
+    const filteredData = [];
+    const now = new Date();
+    
+    for (const date in allData) {
+        const entryDate = new Date(date);
+        const diffDays = (now - entryDate) / (1000 * 60 * 60 * 24);
+        
+        let include = false;
+        if (range === 'today' && date === selectedDate) include = true;
+        else if (range === 'week' && diffDays <= 7) include = true;
+        else if (range === 'month' && diffDays <= 30) include = true;
+
+        if (include) {
+            const day = allData[date];
+            if (day.items) {
+                day.items.forEach(i => filteredData.push({ Date: date, Details: i.where, Amount: i.amt.toFixed(2), Type: 'Expense' }));
+            }
+            if (day.savings > 0) {
+                filteredData.push({ Date: date, Details: 'Savings', Amount: day.savings.toFixed(2), Type: 'Saving' });
+            }
+        }
+    }
+
+    if (exportType === 'pdf') {
+        let html = `<h1>FynVault Report (${range})</h1><table border="1" style="width:100%; border-collapse:collapse;"><tr><th>Date</th><th>Details</th><th>Amount</th></tr>`;
+        filteredData.forEach(r => html += `<tr><td>${r.Date}</td><td>${r.Details}</td><td>${currencySymbols[currency]}${r.Amount}</td></tr>`);
+        html += `</table>`;
+        html2pdf().from(html).save(`FynVault_${range}.pdf`);
+    } else {
+        const ws = XLSX.utils.json_to_sheet(filteredData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Data");
+        XLSX.writeFile(wb, `FynVault_${range}.xlsx`);
+    }
+    closeModal('exportRangeModal');
+}
+
+// --- Feature: Modify & Action Sheet ---
+function openActionSheet(index) {
+    editingIndex = index;
+    const item = allData[selectedDate].items[index];
+    document.getElementById('modifyOption').style.display = item.edited ? 'none' : 'flex';
+    document.getElementById('actionSheet').classList.add('active');
+}
+
+function closeActionSheet() { document.getElementById('actionSheet').classList.remove('active'); editingIndex = null; }
+
+function deleteExpense() {
+    if (confirm("Delete this expense?")) {
+        allData[selectedDate].items.splice(editingIndex, 1);
+        updateUI(); closeActionSheet();
+    }
+}
+
+function prepareModify() {
+    const item = allData[selectedDate].items[editingIndex];
+    document.getElementById('modalWhere').value = item.where.split(' ').slice(1).join(' ');
+    document.getElementById('modalAmt').value = item.amt;
+    document.getElementById('expenseModalTitle').innerText = "Modify Expense";
+    closeActionSheet(); openModal('expenseModal');
+}
 
 function updateUI() {
     const dayData = allData[selectedDate] || { budget: 0, items: [], savings: 0 };
@@ -29,212 +146,86 @@ function updateUI() {
     
     document.getElementById('dateText').innerText = new Date(selectedDate).toLocaleDateString(undefined, {day:'numeric', month:'short'});
     
-    historyDiv.innerHTML = "";
     let totalSpent = 0;
+    historyDiv.innerHTML = "";
+
     if (dayData.items) {
-        dayData.items.forEach(item => totalSpent += parseFloat(item.amt));
-    }
-
-    const filtered = dayData.items ? dayData.items.filter(item => item.where.toLowerCase().includes(searchVal)) : [];
-
-    if (filtered.length > 0) {
-        filtered.forEach((i, idx) => {
-            historyDiv.innerHTML += `
-                <div class="expense-tile">
-                    <div class="tile-left">
-                        <div class="tile-icon">${i.where.split(' ')[0]}</div>
-                        <div class="tile-name">${i.where.split(' ').slice(1).join(' ')}</div>
-                    </div>
-                    <div class="tile-amt">-${currencySymbols[currency]}${i.amt.toFixed(2)}</div>
-                </div>`;
+        dayData.items.forEach((item, idx) => {
+            totalSpent += parseFloat(item.amt);
+            if (item.where.toLowerCase().includes(searchVal)) {
+                historyDiv.innerHTML += `
+                    <div class="expense-tile" onclick="openActionSheet(${idx})">
+                        <div class="tile-left">
+                            <div class="tile-icon">${item.where.split(' ')[0]}</div>
+                            <div class="tile-name">${item.where.split(' ').slice(1).join(' ')} ${item.edited ? '<span class="modified-tag">(edited)</span>' : ''}</div>
+                        </div>
+                        <div class="tile-amt">-${currencySymbols[currency]}${parseFloat(item.amt).toFixed(2)}</div>
+                    </div>`;
+            }
         });
-    } else {
-        historyDiv.innerHTML = "<p style='text-align:center; opacity:0.5; margin-top: 30px;'>No expenses logged for this day.</p>"
     }
 
-    let totalBudget = 0;
     let totalSavings = 0;
-    for (const date in allData) {
-        if (allData[date].budget) {
-            totalBudget += allData[date].budget;
-        }
-        if (allData[date].savings) {
-            totalSavings += allData[date].savings;
-        }
-    }
+    for (let d in allData) totalSavings += (allData[d].savings || 0);
 
-    document.getElementById('totalBudgetAmount').innerText = currencySymbols[currency] + totalBudget.toFixed(2);
-    document.getElementById('spentAmount').innerText = currencySymbols[currency] + totalSpent.toFixed(2);
+    document.getElementById('totalBudgetAmount').innerText = currencySymbols[currency] + (dayData.budget || 0).toFixed(2);
     document.getElementById('totalSavingAmount').innerText = currencySymbols[currency] + totalSavings.toFixed(2);
     document.getElementById('statSpent').innerText = currencySymbols[currency] + totalSpent.toFixed(2);
 
-    const progBar = document.getElementById('progressBar');
-    const dailyBudget = dayData.budget || 0;
-    if (dailyBudget > 0) {
-        let perc = (totalSpent / dailyBudget) * 100;
-        progBar.style.width = Math.min(perc, 100) + "%";
-    } else {
-        progBar.style.width = "0%";
-    }
+    const perc = dayData.budget > 0 ? (totalSpent / dayData.budget) * 100 : 0;
+    document.getElementById('progressBar').style.width = Math.min(perc, 100) + "%";
     localStorage.setItem('fynVault', JSON.stringify(allData));
+}
+
+// Confirmation functions called by Swipers
+function saveNewExpense() {
+    const w = document.getElementById('modalWhere').value || "Expense";
+    const a = document.getElementById('modalAmt').value;
+    if (!a) return;
+    if (!allData[selectedDate]) allData[selectedDate] = { budget: 0, items: [], savings: 0 };
+    
+    if (editingIndex !== null) {
+        allData[selectedDate].items[editingIndex] = { where: `${currentSelectedCat} ${w}`, amt: parseFloat(a), edited: true };
+    } else {
+        allData[selectedDate].items.unshift({ where: `${currentSelectedCat} ${w}`, amt: parseFloat(a), edited: false });
+    }
+    updateUI(); closeModal('expenseModal');
 }
 
 function saveNewBudget() {
     const val = document.getElementById('modalBudgetField').value;
-    if(val && val > 0) {
-        if(!allData[selectedDate]) allData[selectedDate] = { budget: 0, items: [], savings: 0 };
+    if (val > 0) {
+        if (!allData[selectedDate]) allData[selectedDate] = { budget: 0, items: [], savings: 0 };
         allData[selectedDate].budget = parseFloat(val);
-        updateUI(); 
-        closeModal('budgetModal');
+        updateUI(); closeModal('budgetModal');
     }
 }
 
 function saveNewSaving() {
     const val = document.getElementById('modalSavingField').value;
-    if(val && val > 0) {
-        if(!allData[selectedDate]) allData[selectedDate] = { budget: 0, items: [], savings: 0 };
+    if (val > 0) {
+        if (!allData[selectedDate]) allData[selectedDate] = { budget: 0, items: [], savings: 0 };
         allData[selectedDate].savings = (allData[selectedDate].savings || 0) + parseFloat(val);
-        updateUI();
-        closeModal('addSavingModal');
+        updateUI(); closeModal('addSavingModal');
     }
 }
 
-function showSavingsHistory() {
-    const savingsHistoryList = document.getElementById('savingsHistoryList');
-    savingsHistoryList.innerHTML = "";
-    for (const date in allData) {
-        if (allData[date].savings && allData[date].savings > 0) {
-            savingsHistoryList.innerHTML += `
-                <div class="expense-tile">
-                    <div class="tile-left">
-                        <div class="tile-name">${new Date(date).toLocaleDateString(undefined, {day:'numeric', month:'short', year:'numeric'})}</div>
-                    </div>
-                    <div class="tile-amt">+${currencySymbols[currency]}${allData[date].savings.toFixed(2)}</div>
-                </div>`;
-        }
-    }
-    if (savingsHistoryList.innerHTML === "") {
-        savingsHistoryList.innerHTML = "<p style='text-align:center; opacity:0.5; margin-top: 30px;'>No savings history found.</p>"
-    }
-}
-
-function saveNewExpense() {
-    const w = document.getElementById('modalWhere').value || "Expense";
-    const a = document.getElementById('modalAmt').value;
-    if(a) {
-        if(!allData[selectedDate]) allData[selectedDate] = { budget: 0, items: [], savings: 0 };
-        if(!allData[selectedDate].items) allData[selectedDate].items = [];
-        allData[selectedDate].items.unshift({ where: `${currentSelectedCat} ${w}`, amt: parseFloat(a) });
-        updateUI(); 
-        closeModal('expenseModal');
-        document.getElementById('modalWhere').value = "";
-        document.getElementById('modalAmt').value = "";
-    }
-}
-
-function handleDateChange(date) {
-    selectedDate = date;
-    updateUI();
-}
-
+// Standard UI Utils
+function openExpenseModal() { editingIndex = null; document.getElementById('modalWhere').value = ""; document.getElementById('modalAmt').value = ""; document.getElementById('expenseModalTitle').innerText = "Add Expense"; openModal('expenseModal'); }
+function handleDateChange(date) { selectedDate = date; updateUI(); }
 function openModal(id) { document.getElementById(id).classList.add('active'); }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-
-function showPage(id) { 
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-}
-
-function selectCat(emoji, el) {
-    currentSelectedCat = emoji;
-    document.querySelectorAll('.cat-item').forEach(i => i.classList.remove('selected'));
-    el.classList.add('selected');
-}
-
-function toggleTheme() {
-    document.body.classList.toggle('dark-theme');
-    localStorage.setItem('fynVaultTheme', document.body.classList.contains('dark-theme') ? 'dark' : 'light');
-}
-
-function clearAllData() {
-    if (confirm("Are you sure you want to clear all data? This cannot be undone.")) {
-        localStorage.removeItem('fynVault');
-        allData = {};
-        updateUI();
-        location.reload();
-    }
-}
-
-function changeCurrency() {
-    currency = document.getElementById('currencySelector').value;
-    localStorage.setItem('fynVaultCurrency', currency);
-    updateUI();
-}
-
-function getFormattedData() {
-    const data = [];
-    for (const date in allData) {
-        const dayData = allData[date];
-        if (dayData.items) {
-            dayData.items.forEach(item => {
-                data.push({
-                    Date: date,
-                    Details: item.where,
-                    Amount: item.amt.toFixed(2),
-                    Type: 'Expense'
-                });
-            });
-        }
-        if (dayData.savings > 0) {
-            data.push({
-                Date: date,
-                Details: 'Savings',
-                Amount: dayData.savings.toFixed(2),
-                Type: 'Saving'
-            });
+function showPage(id) { document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+function selectCat(emoji, el) { currentSelectedCat = emoji; document.querySelectorAll('.cat-item').forEach(i => i.classList.remove('selected')); el.classList.add('selected'); }
+function toggleTheme() { const isDark = document.body.classList.toggle('dark-theme'); localStorage.setItem('fynVaultTheme', isDark ? 'dark' : 'light'); }
+function changeCurrency() { currency = document.getElementById('currencySelector').value; localStorage.setItem('fynVaultCurrency', currency); updateUI(); }
+function clearAllData() { if (confirm("Clear all?")) { localStorage.clear(); location.reload(); } }
+function showSavingsHistory() {
+    const list = document.getElementById('savingsHistoryList');
+    list.innerHTML = "";
+    for (let date in allData) {
+        if (allData[date].savings > 0) {
+            list.innerHTML += `<div class="expense-tile"><div class="tile-left"><div class="tile-name">${date}</div></div><div class="tile-amt" style="color:var(--accent)">+${currencySymbols[currency]}${allData[date].savings}</div></div>`;
         }
     }
-    return data;
-}
-
-function exportAsPDF() {
-    const data = getFormattedData();
-    let html = `
-        <style>
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
-        </style>
-        <h1>FynVault Data</h1>
-        <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Details</th>
-                    <th>Amount</th>
-                    <th>Type</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-    data.forEach(row => {
-        html += `
-            <tr>
-                <td>${row.Date}</td>
-                <td>${row.Details}</td>
-                <td>${currencySymbols[currency]}${row.Amount}</td>
-                <td>${row.Type}</td>
-            </tr>
-        `;
-    });
-    html += '</tbody></table>';
-    html2pdf().from(html).save('fynvault_data.pdf');
-}
-
-function exportAsExcel() {
-    const data = getFormattedData();
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "FynVault Data");
-    XLSX.writeFile(wb, "fynvault_data.xlsx");
 }
