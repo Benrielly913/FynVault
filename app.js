@@ -3,7 +3,7 @@ let selectedDate = new Date().toISOString().split('T')[0];
 let currentSelectedCat = '🍔';
 let currency = localStorage.getItem('fynVaultCurrency') || 'INR';
 let editingIndex = null;
-let exportType = 'pdf'; // Current format selected
+let currentExportFormat = 'pdf';
 
 const currencySymbols = { 'USD': '$', 'INR': '₹' };
 
@@ -12,6 +12,7 @@ window.onload = () => {
     const savedTheme = localStorage.getItem('fynVaultTheme') || 'dark';
     document.body.classList.toggle('dark-theme', savedTheme === 'dark');
     document.getElementById('currencySelector').value = currency;
+    document.getElementById('searchInput').addEventListener('input', updateUI);
     
     initSwipe('swipe-expense', saveNewExpense);
     initSwipe('swipe-budget', saveNewBudget);
@@ -20,7 +21,6 @@ window.onload = () => {
     updateUI();
 };
 
-// --- Feature: Daily Reset ---
 function checkDailyReset() {
     const lastLogin = localStorage.getItem('fynVaultLastDate');
     const today = new Date().toISOString().split('T')[0];
@@ -31,104 +31,69 @@ function checkDailyReset() {
     localStorage.setItem('fynVault', JSON.stringify(allData));
 }
 
-// --- Feature: Swipe to Confirm ---
 function initSwipe(id, callback) {
     const container = document.getElementById(id);
     const handle = container.querySelector('.swipe-handle');
     let isDragging = false, startX = 0;
 
-    const onStart = (e) => {
-        isDragging = true;
-        startX = e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
-        handle.style.transition = 'none';
-    };
-
+    const onStart = (e) => { isDragging = true; startX = e.type.includes('mouse') ? e.pageX : e.touches[0].clientX; handle.style.transition = 'none'; };
     const onMove = (e) => {
         if (!isDragging) return;
         const currentX = e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
-        let delta = currentX - startX;
-        const max = container.offsetWidth - handle.offsetWidth - 10;
-        if (delta < 0) delta = 0;
-        if (delta > max) delta = max;
+        let delta = Math.max(0, Math.min(currentX - startX, container.offsetWidth - handle.offsetWidth - 10));
         handle.style.transform = `translateX(${delta}px)`;
-        if (delta >= max) {
+        if (delta >= container.offsetWidth - handle.offsetWidth - 12) {
             isDragging = false;
-            handle.style.transform = `translateX(${max}px)`;
-            setTimeout(() => { resetSwipe(handle); callback(); }, 200);
+            handle.style.transform = `translateX(0px)`;
+            callback();
         }
     };
-
-    const onEnd = () => { isDragging = false; resetSwipe(handle); };
-    const resetSwipe = (el) => { el.style.transition = '0.3s'; el.style.transform = 'translateX(0px)'; };
+    const onEnd = () => { isDragging = false; handle.style.transition = '0.3s'; handle.style.transform = 'translateX(0px)'; };
 
     handle.addEventListener('mousedown', onStart);
-    handle.addEventListener('touchstart', onStart);
+    handle.addEventListener('touchstart', onStart, {passive: true});
     window.addEventListener('mousemove', onMove);
-    window.addEventListener('touchmove', onMove);
+    window.addEventListener('touchmove', onMove, {passive: false});
     window.addEventListener('mouseup', onEnd);
     window.addEventListener('touchend', onEnd);
 }
 
-// --- Feature: Export Logic (Range Based) ---
-function openExportRange(type) {
-    exportType = type;
-    document.getElementById('exportModalTitle').innerText = `Export as ${type.toUpperCase()}`;
+function openExportRange(format) {
+    currentExportFormat = format;
     openModal('exportRangeModal');
 }
 
 function executeExport(range) {
-    const filteredData = [];
+    const reportData = [];
     const now = new Date();
-    
     for (const date in allData) {
         const entryDate = new Date(date);
-        const diffDays = (now - entryDate) / (1000 * 60 * 60 * 24);
-        
-        let include = false;
-        if (range === 'today' && date === selectedDate) include = true;
-        else if (range === 'week' && diffDays <= 7) include = true;
-        else if (range === 'month' && diffDays <= 30) include = true;
-
+        const diff = (now - entryDate) / (1000 * 60 * 60 * 24);
+        let include = (range === 'today' && date === selectedDate) || (range === 'week' && diff <= 7) || (range === 'month' && diff <= 30);
         if (include) {
-            const day = allData[date];
-            if (day.items) {
-                day.items.forEach(i => filteredData.push({ Date: date, Details: i.where, Amount: i.amt.toFixed(2), Type: 'Expense' }));
-            }
-            if (day.savings > 0) {
-                filteredData.push({ Date: date, Details: 'Savings', Amount: day.savings.toFixed(2), Type: 'Saving' });
-            }
+            if (allData[date].items) allData[date].items.forEach(i => reportData.push({ Date: date, Item: i.where, Amount: i.amt }));
+            if (allData[date].savings > 0) reportData.push({ Date: date, Item: 'Savings', Amount: allData[date].savings });
         }
     }
 
-    if (exportType === 'pdf') {
-        let html = `<h1>FynVault Report (${range})</h1><table border="1" style="width:100%; border-collapse:collapse;"><tr><th>Date</th><th>Details</th><th>Amount</th></tr>`;
-        filteredData.forEach(r => html += `<tr><td>${r.Date}</td><td>${r.Details}</td><td>${currencySymbols[currency]}${r.Amount}</td></tr>`);
-        html += `</table>`;
-        html2pdf().from(html).save(`FynVault_${range}.pdf`);
+    if (currentExportFormat === 'pdf') {
+        let html = `<h2>FynVault ${range} Report</h2><table border="1" style="width:100%"><tr><th>Date</th><th>Item</th><th>Amount</th></tr>`;
+        reportData.forEach(r => html += `<tr><td>${r.Date}</td><td>${r.Item}</td><td>${r.Amount}</td></tr>`);
+        html2pdf().from(html + "</table>").save(`FynVault_${range}.pdf`);
     } else {
-        const ws = XLSX.utils.json_to_sheet(filteredData);
+        const ws = XLSX.utils.json_to_sheet(reportData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Data");
+        XLSX.utils.book_append_sheet(wb, ws, "Report");
         XLSX.writeFile(wb, `FynVault_${range}.xlsx`);
     }
     closeModal('exportRangeModal');
 }
 
-// --- Feature: Modify & Action Sheet ---
 function openActionSheet(index) {
     editingIndex = index;
     const item = allData[selectedDate].items[index];
-    document.getElementById('modifyOption').style.display = item.edited ? 'none' : 'flex';
-    document.getElementById('actionSheet').classList.add('active');
-}
-
-function closeActionSheet() { document.getElementById('actionSheet').classList.remove('active'); editingIndex = null; }
-
-function deleteExpense() {
-    if (confirm("Delete this expense?")) {
-        allData[selectedDate].items.splice(editingIndex, 1);
-        updateUI(); closeActionSheet();
-    }
+    document.getElementById('modifyOption').style.display = item.edited ? 'none' : 'block';
+    openModal('actionSheet');
 }
 
 function prepareModify() {
@@ -136,7 +101,16 @@ function prepareModify() {
     document.getElementById('modalWhere').value = item.where.split(' ').slice(1).join(' ');
     document.getElementById('modalAmt').value = item.amt;
     document.getElementById('expenseModalTitle').innerText = "Modify Expense";
-    closeActionSheet(); openModal('expenseModal');
+    closeModal('actionSheet');
+    openModal('expenseModal');
+}
+
+function deleteExpense() {
+    if (confirm("Delete this expense?")) {
+        allData[selectedDate].items.splice(editingIndex, 1);
+        updateUI();
+        closeModal('actionSheet');
+    }
 }
 
 function updateUI() {
@@ -148,7 +122,6 @@ function updateUI() {
     
     let totalSpent = 0;
     historyDiv.innerHTML = "";
-
     if (dayData.items) {
         dayData.items.forEach((item, idx) => {
             totalSpent += parseFloat(item.amt);
@@ -177,7 +150,6 @@ function updateUI() {
     localStorage.setItem('fynVault', JSON.stringify(allData));
 }
 
-// Confirmation functions called by Swipers
 function saveNewExpense() {
     const w = document.getElementById('modalWhere').value || "Expense";
     const a = document.getElementById('modalAmt').value;
@@ -210,7 +182,6 @@ function saveNewSaving() {
     }
 }
 
-// Standard UI Utils
 function openExpenseModal() { editingIndex = null; document.getElementById('modalWhere').value = ""; document.getElementById('modalAmt').value = ""; document.getElementById('expenseModalTitle').innerText = "Add Expense"; openModal('expenseModal'); }
 function handleDateChange(date) { selectedDate = date; updateUI(); }
 function openModal(id) { document.getElementById(id).classList.add('active'); }
