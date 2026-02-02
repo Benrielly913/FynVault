@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,13 +10,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
 </head>
-<body>
+<body class="dark-theme">
 
     <div id="mainPage" class="page active">
-    
         <div class="nav-header">
             <div class="app-logo">
-                <img src="coinlogo.png" alt="FynVault Logo">
+                <img src="coinlogo.png" alt="Logo">
                 <span class="app-name">FynVault</span>
             </div>
             <div class="date-chip" onclick="document.getElementById('calendarInput').showPicker()">
@@ -39,17 +37,14 @@
                     </div>
                 </div>
             </div>
+
             <div class="expense-boxes">
                 <div class="expense-box" onclick="openModal('budgetModal')">
-                    <p class="expense-label"><span class="material-symbols-outlined">account_balance_wallet</span> TOTAL BUDGET</p>
+                    <p class="expense-label"><span class="material-symbols-outlined">account_balance_wallet</span> BUDGET</p>
                     <p class="expense-amount" id="totalBudgetAmount">₹0.00</p>
                 </div>
-                <div class="expense-box">
-                    <p class="expense-label"><span class="material-symbols-outlined">shopping_cart</span> SPENT TODAY</p>
-                    <p class="expense-amount" id="spentAmount">₹0.00</p>
-                </div>
-                <div class="expense-box full-width" onclick="openModal('savingModal')">
-                    <p class="expense-label"><span class="material-symbols-outlined">savings</span> TOTAL SAVINGS</p>
+                <div class="expense-box" onclick="openModal('savingModal')">
+                    <p class="expense-label"><span class="material-symbols-outlined">savings</span> SAVINGS</p>
                     <p class="expense-amount" id="totalSavingAmount">₹0.00</p>
                 </div>
             </div>
@@ -61,25 +56,29 @@
             <div id="history" class="expense-list"></div>
         </div>
 
-        <button class="add-fab" onclick="openModal('expenseModal')">+</button>
+        <button class="add-fab" onclick="openExpenseModal()">+</button>
     </div>
 
     <div id="expenseModal" class="modal-overlay">
         <div class="custom-modal">
             <div class="modal-header">
-                <h3>Add Expense</h3>
+                <h3 id="expenseModalTitle">Add Expense</h3>
                 <span class="close-x" onclick="closeModal('expenseModal')">&times;</span>
             </div>
             <div class="category-grid">
                 <div class="cat-item selected" onclick="selectCat('🍔', this)">🍔</div>
                 <div class="cat-item" onclick="selectCat('🚗', this)">🚗</div>
                 <div class="cat-item" onclick="selectCat('🛍️', this)">🛍️</div>
-                <div class="cat-item" onclick="selectCat('🍿', this)">🍿</div>
+                <div class="cat-item" onclick="selectCat('🧾', this)">🧾</div>
                 <div class="cat-item" onclick="selectCat('💡', this)">💡</div>
             </div>
             <input type="text" id="modalWhere" placeholder="What for?">
             <input type="number" id="modalAmt" placeholder="Amount">
-            <button class="modal-save-btn" onclick="saveNewExpense()">Add to Ledger</button>
+            
+            <div class="swipe-container" id="swipe-expense">
+                <div class="swipe-text">Swipe to Confirm</div>
+                <div class="swipe-handle">→</div>
+            </div>
         </div>
     </div>
 
@@ -90,18 +89,10 @@
                 <span class="close-x" onclick="closeModal('budgetModal')">&times;</span>
             </div>
             <input type="number" id="modalBudgetField" placeholder="Enter amount">
-            <button class="modal-save-btn" onclick="saveNewBudget()">Confirm Budget</button>
-        </div>
-    </div>
-
-    <div id="savingModal" class="modal-overlay">
-        <div class="custom-modal">
-            <div class="modal-header">
-                <h3>Savings Options</h3>
-                <span class="close-x" onclick="closeModal('savingModal')">&times;</span>
+            <div class="swipe-container" id="swipe-budget">
+                <div class="swipe-text">Swipe to Set</div>
+                <div class="swipe-handle">→</div>
             </div>
-            <button class="modal-save-btn" onclick="openModal('addSavingModal'); closeModal('savingModal');">Add to Today's Savings</button>
-            <button class="modal-save-btn" style="margin-top: 15px; background-color: #3498db;" onclick="showSavingsHistory(); openModal('savingsHistoryModal'); closeModal('savingModal');">View Savings History</button>
         </div>
     </div>
 
@@ -112,17 +103,49 @@
                 <span class="close-x" onclick="closeModal('addSavingModal')">&times;</span>
             </div>
             <input type="number" id="modalSavingField" placeholder="Enter amount">
-            <button class="modal-save-btn" onclick="saveNewSaving()">Confirm Saving</button>
+            <div class="swipe-container" id="swipe-saving">
+                <div class="swipe-text">Swipe to Save</div>
+                <div class="swipe-handle">→</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="exportRangeModal" class="modal-overlay">
+        <div class="custom-modal">
+            <div class="modal-header">
+                <h3 id="exportModalTitle">Export Range</h3>
+                <span class="close-x" onclick="closeModal('exportRangeModal')">&times;</span>
+            </div>
+            <button class="modal-btn" onclick="executeExport('today')">Today</button>
+            <button class="modal-btn" onclick="executeExport('week')">Last 7 Days</button>
+            <button class="modal-btn" onclick="executeExport('month')">Last 30 Days</button>
+        </div>
+    </div>
+
+    <div id="actionSheet" class="action-sheet-overlay" onclick="closeActionSheet()">
+        <div class="action-sheet" onclick="event.stopPropagation()">
+            <div class="action-item" id="modifyOption" onclick="prepareModify()">
+                <span class="material-symbols-outlined">edit</span> Modify Expense
+            </div>
+            <div class="action-item delete" onclick="deleteExpense()">
+                <span class="material-symbols-outlined">delete</span> Delete
+            </div>
+            <div class="action-item cancel" onclick="closeActionSheet()">Cancel</div>
+        </div>
+    </div>
+
+    <div id="savingModal" class="modal-overlay">
+        <div class="custom-modal">
+            <div class="modal-header"><h3>Savings</h3><span class="close-x" onclick="closeModal('savingModal')">&times;</span></div>
+            <button class="modal-btn" onclick="openModal('addSavingModal'); closeModal('savingModal');">Add Savings</button>
+            <button class="modal-btn secondary" onclick="showSavingsHistory(); openModal('savingsHistoryModal'); closeModal('savingModal');">History</button>
         </div>
     </div>
 
     <div id="savingsHistoryModal" class="modal-overlay">
         <div class="custom-modal">
-            <div class="modal-header">
-                <h3>Savings History</h3>
-                <span class="close-x" onclick="closeModal('savingsHistoryModal')">&times;</span>
-            </div>
-            <div id="savingsHistoryList" class="expense-list" style="height: 300px; overflow-y: auto;"></div>
+            <div class="modal-header"><h3>Savings History</h3><span class="close-x" onclick="closeModal('savingsHistoryModal')">&times;</span></div>
+            <div id="savingsHistoryList" class="expense-list" style="max-height: 300px;"></div>
         </div>
     </div>
 
@@ -134,20 +157,11 @@
         </div>
         <div class="content-area">
             <div class="settings-card">
-                <div class="settings-item">
-                    <div class="item-info">
-                        <span class="item-title">Dark Mode</span>
-                        <span class="item-sub">Toggle between light and dark mode</span>
-                    </div>
-                    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
-                </div>
+                <div class="settings-item"><span class="item-title">Dark Mode</span><button class="theme-toggle" onclick="toggleTheme()">🌙</button></div>
             </div>
             <div class="settings-card">
                 <div class="settings-item">
-                    <div class="item-info">
-                        <span class="item-title">Currency</span>
-                        <span class="item-sub">Select your preferred currency</span>
-                    </div>
+                    <span class="item-title">Currency</span>
                     <select id="currencySelector" onchange="changeCurrency()">
                         <option value="INR">INR (₹)</option>
                         <option value="USD">USD ($)</option>
@@ -155,26 +169,12 @@
                 </div>
             </div>
             <div class="settings-card">
-                <div class="settings-item">
-                    <div class="item-info">
-                        <span class="item-title">Export as PDF</span>
-                        <span class="item-sub">Export all your data as a PDF file</span>
-                    </div>
-                    <button class="theme-toggle" onclick="exportAsPDF()">📄</button>
-                </div>
-                <div class="settings-item" style="margin-top: 15px;">
-                    <div class="item-info">
-                        <span class="item-title">Export as Excel</span>
-                        <span class="item-sub">Export all your data as an Excel file</span>
-                    </div>
-                    <button class="theme-toggle" onclick="exportAsExcel()">📊</button>
+                <div class="settings-item" onclick="openExportRange('pdf')"><span class="item-title">Export as PDF</span><button class="theme-toggle">📄</button></div>
+                <div class="settings-item" onclick="openExportRange('excel')" style="margin-top:15px; border-top: 1px solid rgba(128,128,128,0.1); padding-top:15px;">
+                    <span class="item-title">Export as Excel</span><button class="theme-toggle">📊</button>
                 </div>
             </div>
-            <div class="settings-card danger-zone" onclick="clearAllData()">
-                <div class="settings-item">
-                    <span class="item-title">Clear All Data</span>
-                </div>
-            </div>
+            <div class="settings-card danger-zone" onclick="clearAllData()"><div class="settings-item"><span class="item-title">Clear All Data</span></div></div>
         </div>
     </div>
 
